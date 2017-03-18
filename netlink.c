@@ -41,6 +41,7 @@
 #include "functions.h"
 #include "main.h"
 #include "packet.h"
+#include "ed25519.h"
 
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(*(x)))
 
@@ -117,6 +118,10 @@ struct nla_policy batadv_netlink_policy[NUM_BATADV_ATTR] = {
 					    .minlen = ETH_ALEN,
 					    .maxlen = ETH_ALEN },
 	[BATADV_ATTR_BLA_CRC]		= { .type = NLA_U16 },
+        [BATADV_ATTR_SECRET_KEY]        = { .type = NLA_NUL_STRING,
+                                            .minlen = sizeof(ed25519_secret_key),
+                                            .maxlen = sizeof(ed25519_secret_key) },
+        [BATADV_ATTR_PRICE]             = { .type = NLA_U32 },
 };
 
 static int last_err;
@@ -1629,6 +1634,58 @@ int get_primarymac_netlink(const char *mesh_iface, uint8_t *primarymac)
 		return ret;
 
 	if (!opts.found)
+		return -ENOENT;
+
+	return 0;
+}
+
+//Recieves callback and parses out the key value
+static int get_secret_key_cb(struct nl_msg *msg, void* arg)
+{
+        printf("%s \n", "callback running");
+	struct nlattr *attrs[BATADV_ATTR_MAX+1];
+	struct nlmsghdr *nlh = nlmsg_hdr(msg);
+	struct genlmsghdr *ghdr;
+	const uint8_t *primary_mac;
+	struct nlquery_opts *query_opts = arg;
+
+	if (!genlmsg_valid_hdr(nlh, 0))
+		return NL_OK;
+
+	ghdr = nlmsg_data(nlh);
+
+	if (ghdr->cmd != BATADV_CMD_GET_SECRET_KEY)
+		return NL_OK;
+
+	if (nla_parse(attrs, BATADV_ATTR_MAX, genlmsg_attrdata(ghdr, 0),
+		      genlmsg_len(ghdr), batadv_netlink_policy)) {
+		return NL_OK;
+	}
+
+	primary_mac = nla_data(attrs[BATADV_ATTR_SECRET_KEY]);
+        printf("%s \n", "did we get it?");
+        printf("%s \n", primary_mac);
+
+	return NL_STOP;
+}
+
+//TODO put this in it's own file
+//Sends netlink request for ed25519 key to kernelspace
+int get_secret_key(const char *mesh_iface)
+{
+        struct nlquery_opts opts;
+        int ret = 0;
+        opts.err = 0;
+        printf("%s \n", "performing the netlink call");
+	ret = netlink_query_common(mesh_iface, BATADV_CMD_GET_SECRET_KEY,
+			           get_secret_key_cb, 0,
+				   &opts);
+        printf("%s %i \n", "back from the netlink call with code ", ret);
+
+	if (ret < 0)
+		return ret;
+
+	if (opts.err)
 		return -ENOENT;
 
 	return 0;

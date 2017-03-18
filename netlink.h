@@ -51,6 +51,8 @@ int get_nexthop_netlink(const char *mesh_iface, const struct ether_addr *mac,
 			uint8_t *nexthop, char *ifname);
 int get_primarymac_netlink(const char *mesh_iface, uint8_t *primarymac);
 
+int get_secret_key(const char *mesh_iface);
+
 extern struct nla_policy batadv_netlink_policy[];
 
 #endif /* _BATCTL_NETLINK_H */

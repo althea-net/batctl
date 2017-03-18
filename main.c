@@ -192,6 +192,11 @@ int main(int argc, char **argv)
 
 		ret = translate(mesh_iface, argc - 1, argv + 1);
 
+	} else if ((strcmp(argv[1], "key") == 0) || (strcmp(argv[1], "k") == 0)) {
+
+		printf("%s \n", "calling the key grabber");
+		ret = get_secret_key(mesh_iface);
+
 	} else {
 
 		for (i = 0; i < BATCTL_SETTINGS_NUM; i++) {
